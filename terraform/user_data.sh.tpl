@@ -8,9 +8,9 @@ sudo apt-get upgrade -y
 sudo apt-get install -y git maven openjdk-${java_version}-jdk iptables-persistent terraform
 
 # Clone and build application
-sudo git clone ${github_repo} /home/ubuntu/app
-sudo chown -R ubuntu:ubuntu /home/ubuntu/app
-cd /home/ubuntu/app
+sudo git clone ${github_repo} /home/ubuntu
+sudo chown -R ubuntu:ubuntu /home/ubuntu
+cd /home/ubuntu/tech_eazy_devops_atharva5683/terraform
 
 # Initialize Terraform
 terraform init
