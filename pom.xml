@@ -7,7 +7,7 @@
     <groupId>com.example</groupId>
     <artifactId>hellomvc</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>Spring Boot Hello MVC</name>
+    <n>Spring Boot Hello MVC</n>
     <description>Simple Spring Boot project with MVC only</description>
     <packaging>jar</packaging>
 

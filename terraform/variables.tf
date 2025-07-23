@@ -35,14 +35,10 @@ variable "github_repo" {
   type    = string
   default = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
 }
-variable "repo_url" {
-  type     = string
-  default  = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
-}
 
 variable "app_jar_path" {
   type    = string
-  default = "target/techeazy-devops-0.0.1-SNAPSHOT.jar"
+  default = "target/hellomvc-0.0.1-SNAPSHOT.jar"
 }
 
 variable "auto_shutdown_minutes" {
@@ -54,4 +50,13 @@ variable "verify_app_deployment" {
   description = "Whether to verify if the Spring Boot application is running after deployment"
   type        = bool
   default     = true
+}
+
+variable "s3_bucket_name" {
+  description = "Name of the S3 bucket for storing logs"
+  type        = string
+  validation {
+    condition     = length(var.s3_bucket_name) > 0
+    error_message = "S3 bucket name must be provided."
+  }
 }
