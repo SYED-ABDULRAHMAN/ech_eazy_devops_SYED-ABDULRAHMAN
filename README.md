@@ -46,11 +46,16 @@ To manually start the application:
 ```
 ssh -i your-key.pem ubuntu@your-instance-ip
 cd /home/ubuntu/app
-java -jar target/hellomvc-0.0.1-SNAPSHOT.jar
+java -jar target/techeazy-devops-0.0.1-SNAPSHOT.jar
 ```
 
 ## Log Management
-Logs are automatically uploaded to the configured S3 bucket before instance shutdown. To manually upload logs to S3:
+Logs are automatically uploaded to the configured S3 bucket before instance shutdown. The system uses two mechanisms to ensure logs are uploaded:
+
+1. A systemd service that runs during shutdown
+2. A system-shutdown script in /lib/systemd/system-shutdown/
+
+To manually upload logs to S3:
 
 ```
 ssh -i your-key.pem ubuntu@your-instance-ip
