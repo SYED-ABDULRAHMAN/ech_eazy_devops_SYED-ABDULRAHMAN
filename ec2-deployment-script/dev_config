@@ -1,0 +1,5 @@
+INSTANCE_TYPE="t3.micro"
+REPO_URL="https://github.com/Trainings-TechEazy/test-repo-for-devops"
+JAVA_VERSION="21"
+PORT="80"
+MY_IP="65.0.107.95"
