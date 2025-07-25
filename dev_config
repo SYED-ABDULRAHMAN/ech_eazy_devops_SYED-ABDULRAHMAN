@@ -1,0 +1,6 @@
+# dev_config
+export JAVA_VERSION=21
+export GITHUB_REPO=https://github.com/Trainings-TechEazy/test-repo-for-devops
+export APP_PORT=80
+export TIMEOUT_MIN=30
+export APP_PATH="target/hellomvc-0.0.1-SNAPSHOT.jar"
