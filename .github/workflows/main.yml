@@ -293,17 +293,6 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   
-  - name: Create Destruction Summary
-    run: |
-      echo "## 🗑️ Infrastructure Destroyed!" >> $GITHUB_STEP_SUMMARY
-      echo "" >> $GITHUB_STEP_SUMMARY
-      echo "All AWS resources have been successfully destroyed." >> $GITHUB_STEP_SUMMARY
-      echo "" >> $GITHUB_STEP_SUMMARY
-      echo "### 🧹 Cleanup Complete" >> $GITHUB_STEP_SUMMARY
-      echo "- EC2 Instance: Terminated" >> $GITHUB_STEP_SUMMARY
-      echo "- VPC and associated resources: Deleted" >> $GITHUB_STEP_SUMMARY
-      echo "- Security Groups: Removed" >> $GITHUB_STEP_SUMMARY
-      echo "- Key Pair: Deleted" >> $GITHUB_STEP_SUMMARY
 
     
     - name: Create Destruction Summary
