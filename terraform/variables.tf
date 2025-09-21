@@ -69,3 +69,35 @@ variable "create_elastic_ip" {
   type        = bool
   default     = false
 }
+# Networking Configuration
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for the public subnet"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+# Environment Tagging
+variable "environment" {
+  description = "Deployment environment (e.g., dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+# Security Group Access
+variable "allowed_ssh_cidr" {
+  description = "CIDR blocks allowed to access SSH (port 22)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_http_cidr" {
+  description = "CIDR blocks allowed to access HTTP/HTTPS (ports 80, 443, 8080)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
