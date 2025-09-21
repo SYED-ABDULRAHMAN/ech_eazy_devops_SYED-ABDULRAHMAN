@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = us-east-1
 }
 
 # Data source for getting the latest Ubuntu 22.04 LTS AMI
