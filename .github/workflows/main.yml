@@ -253,7 +253,7 @@ jobs:
         echo "2. Test the application endpoint" >> $GITHUB_STEP_SUMMARY
         echo "3. Monitor application logs if needed" >> $GITHUB_STEP_SUMMARY
 
-terraform-destroy:
+  terraform-destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
