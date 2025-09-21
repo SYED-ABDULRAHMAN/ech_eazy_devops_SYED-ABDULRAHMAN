@@ -298,3 +298,4 @@ jobs:
         echo "- VPC and associated resources: Deleted" >> $GITHUB_STEP_SUMMARY
         echo "- Security Groups: Removed" >> $GITHUB_STEP_SUMMARY
         echo "- Key Pair: Deleted" >> $GITHUB_STEP_SUMMARY
+
