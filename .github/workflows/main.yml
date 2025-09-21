@@ -253,47 +253,39 @@ jobs:
         echo "2. Test the application endpoint" >> $GITHUB_STEP_SUMMARY
         echo "3. Monitor application logs if needed" >> $GITHUB_STEP_SUMMARY
 
-  terraform-destroy:
-  name: 'Terraform Destroy'
-  runs-on: ubuntu-latest
-  if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
-  environment: 
-    name: production
-  
-  defaults:
-    run:
-      shell: bash
-      working-directory: ./terraform
-  
-  steps:
-  - name: Checkout
-    uses: actions/checkout@v4
-
-  - name: Setup Terraform
-    uses: hashicorp/setup-terraform@v3
-    with:
-      terraform_version: ${{ env.TF_VERSION }}
-  
-  # Download the previous Terraform state artifact
-  - name: Download Terraform State
-    uses: actions/download-artifact@v4
-    with:
-      name: terraform-state
-      path: ./terraform
-
-  - name: Terraform Init
-    run: terraform init
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  
-  - name: Terraform Destroy
-    run: terraform destroy -var-file="terraform.tfvars" -auto-approve
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  
-
+terraform-destroy:
+    name: 'Terraform Destroy'
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: 
+      name: production
+    
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./terraform
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Terraform Init
+      run: terraform init
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    
+    - name: Terraform Destroy
+      run: |
+        terraform destroy -var-file="terraform.tfvars" -auto-approve
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     
     - name: Create Destruction Summary
       run: |
