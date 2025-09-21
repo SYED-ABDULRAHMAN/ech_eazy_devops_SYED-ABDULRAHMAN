@@ -23,8 +23,8 @@ root_volume_size = 20
 
 # Key Pair Configuration
 # Creating new key pair as requested
-create_key_pair    = true
-existing_key_name  = ""
+create_key_pair    = false
+existing_key_name  = "techeazy-devops-key"
 
 # Application Configuration
 github_repo_url = "https://github.com/Trainings-TechEazy/test-repo-for-devops.git"
