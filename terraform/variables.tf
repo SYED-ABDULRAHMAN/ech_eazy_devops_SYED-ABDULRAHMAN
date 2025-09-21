@@ -25,6 +25,12 @@ variable "root_volume_size" {
   default     = 20
 }
 
+variable "project_name" {
+  type        = string
+  description = "Project name used for naming resources"
+}
+
+
 # Key Pair Configuration
 variable "create_key_pair" {
   description = "Whether to create a new key pair or use an existing one"
