@@ -25,6 +25,12 @@ variable "root_volume_size" {
   default     = 20
 }
 
+variable "aws_region" {
+  type        = string
+  default     = "us-east-1"
+  description = "AWS region where resources will be created"
+}
+
 variable "project_name" {
   type        = string
   description = "Project name used for naming resources"
