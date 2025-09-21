@@ -220,7 +220,7 @@ User=ubuntu
 WorkingDirectory=/opt/app
 Environment=JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 Environment=PORT=${app_port}
-ExecStart=/usr/lib/jvm/java-21-openjdk-amd64/bin/java -jar $JAR_FILE --server.port=${app_port}
+ExecStart=/usr/lib/jvm/java-21-openjdk-amd64/bin/java -jar $JAR_FILE
 Restart=always
 RestartSec=10
 StandardOutput=journal
