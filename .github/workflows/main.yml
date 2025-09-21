@@ -254,38 +254,57 @@ jobs:
         echo "3. Monitor application logs if needed" >> $GITHUB_STEP_SUMMARY
 
   terraform-destroy:
-    name: 'Terraform Destroy'
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
-    environment: 
-      name: production
-    
-    defaults:
-      run:
-        shell: bash
-        working-directory: ./terraform
-    
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: ${{ env.TF_VERSION }}
-    
-    - name: Terraform Init
-      run: terraform init
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    
-    - name: Terraform Destroy
-      run: |
-        terraform destroy -var-file="terraform.tfvars" -auto-approve
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  name: 'Terraform Destroy'
+  runs-on: ubuntu-latest
+  if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+  environment: 
+    name: production
+  
+  defaults:
+    run:
+      shell: bash
+      working-directory: ./terraform
+  
+  steps:
+  - name: Checkout
+    uses: actions/checkout@v4
+
+  - name: Setup Terraform
+    uses: hashicorp/setup-terraform@v3
+    with:
+      terraform_version: ${{ env.TF_VERSION }}
+  
+  # Download the previous Terraform state artifact
+  - name: Download Terraform State
+    uses: actions/download-artifact@v4
+    with:
+      name: terraform-state
+      path: ./terraform
+
+  - name: Terraform Init
+    run: terraform init
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  
+  - name: Terraform Destroy
+    run: terraform destroy -var-file="terraform.tfvars" -auto-approve
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  
+  - name: Create Destruction Summary
+    run: |
+      echo "## 🗑️ Infrastructure Destroyed!" >> $GITHUB_STEP_SUMMARY
+      echo "" >> $GITHUB_STEP_SUMMARY
+      echo "All AWS resources have been successfully destroyed." >> $GITHUB_STEP_SUMMARY
+      echo "" >> $GITHUB_STEP_SUMMARY
+      echo "### 🧹 Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+      echo "- EC2 Instance: Terminated" >> $GITHUB_STEP_SUMMARY
+      echo "- VPC and associated resources: Deleted" >> $GITHUB_STEP_SUMMARY
+      echo "- Security Groups: Removed" >> $GITHUB_STEP_SUMMARY
+      echo "- Key Pair: Deleted" >> $GITHUB_STEP_SUMMARY
+
     
     - name: Create Destruction Summary
       run: |
