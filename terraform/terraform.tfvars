@@ -28,7 +28,7 @@ existing_key_name  = "techeazy-devops-key"
 
 # Application Configuration
 github_repo_url = "https://github.com/Trainings-TechEazy/test-repo-for-devops.git"
-app_port       = 8080
+app_port       = 80
 
 # Elastic IP Configuration
 create_elastic_ip = false
