@@ -9,11 +9,6 @@ resource "aws_s3_bucket" "logs" {
   }
 }
 
-resource "aws_s3_bucket_acl" "logs_acl" {
-  bucket = aws_s3_bucket.logs.id
-  acl    = "private"
-}
-
 # Lifecycle rule to delete logs after 7 days
 resource "aws_s3_bucket_lifecycle_configuration" "logs_lifecycle" {
   bucket = aws_s3_bucket.logs.id
