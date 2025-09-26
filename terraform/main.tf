@@ -191,7 +191,6 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_security_group.app_sg.id]
   subnet_id              = aws_subnet.public.id
   user_data              = local.user_data
-  iam_instance_profile   = aws_iam_instance_profile.app_instance_profile.name
 
 
   root_block_device {
