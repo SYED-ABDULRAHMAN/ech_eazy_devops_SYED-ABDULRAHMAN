@@ -178,6 +178,8 @@ locals {
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
     github_repo_url = var.github_repo_url
     app_port        = var.app_port
+    s3_bucket_name  = var.s3_bucket_name
+    aws_region      = var.aws_region
   }))
 }
 
@@ -189,6 +191,8 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_security_group.app_sg.id]
   subnet_id              = aws_subnet.public.id
   user_data              = local.user_data
+  iam_instance_profile   = aws_iam_instance_profile.app_instance_profile.name
+
 
   root_block_device {
     volume_type = var.root_volume_type
@@ -202,7 +206,7 @@ resource "aws_instance" "app_server" {
   }
 
   # Ensure instance is ready before considering it created
-  depends_on = [aws_internet_gateway.main]
+  depends_on = [aws_internet_gateway.main,    aws_iam_instance_profile.app_instance_profile]
 }
 
 # Elastic IP for the instance (optional)
