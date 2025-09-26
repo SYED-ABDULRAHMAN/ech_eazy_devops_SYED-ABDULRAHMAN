@@ -178,6 +178,7 @@ locals {
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
     github_repo_url = var.github_repo_url
     app_port        = var.app_port
+    s3_bucket_name  = var.s3_bucket_name
   }))
 }
 
