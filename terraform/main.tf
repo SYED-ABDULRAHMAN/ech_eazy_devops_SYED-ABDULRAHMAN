@@ -206,7 +206,7 @@ resource "aws_instance" "app_server" {
   }
 
   # Ensure instance is ready before considering it created
-  depends_on = [aws_internet_gateway.main,    aws_iam_instance_profile.app_instance_profile]
+  depends_on = [aws_internet_gateway.main]
 }
 
 # Elastic IP for the instance (optional)
