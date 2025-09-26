@@ -1,95 +1,113 @@
 #!/bin/bash
-set -e
-echo 'export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' >> /etc/profile
+set -euo pipefail
+
+LOG_FILE="/var/log/cloud-init.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "=== Starting deployment: $(date) ==="
+
+# ----------------------------
+# 1. Update PATH safely
+# ----------------------------
+if ! grep -q "/usr/local/sbin" /etc/profile; then
+    echo 'export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' >> /etc/profile
+fi
 export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Update system packages
+# ----------------------------
+# 2. Update system and install essentials
+# ----------------------------
 apt-get update -y
 apt-get upgrade -y
-
-# Install essential packages
 apt-get install -y \
-    curl \
-    wget \
-    git \
-    unzip \
-    software-properties-common \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    lsb-release \
-    build-essential
+    curl wget git unzip software-properties-common apt-transport-https \
+    ca-certificates gnupg lsb-release build-essential net-tools
 
-# Install Node.js (LTS version)
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-apt-get install -y nodejs
+# ----------------------------
+# 3. Install Node.js LTS
+# ----------------------------
+if ! command -v node &>/dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+    apt-get install -y nodejs
+fi
 
-# Install Python 3 and pip
+# ----------------------------
+# 4. Install Python3
+# ----------------------------
 apt-get install -y python3 python3-pip python3-venv
 
-# Install Java 21 (OpenJDK 21)
+# ----------------------------
+# 5. Install OpenJDK 21
+# ----------------------------
 apt-get install -y openjdk-21-jdk
+if ! grep -q "JAVA_HOME" /etc/environment; then
+    echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> /etc/environment
+    echo 'export PATH=$PATH:$JAVA_HOME/bin' >> /etc/environment
+fi
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH=$PATH:$JAVA_HOME/bin
 
-# Set JAVA_HOME for Java 21
-echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> /etc/environment
-echo 'export PATH=$PATH:$JAVA_HOME/bin' >> /etc/environment
-source /etc/environment
+# ----------------------------
+# 6. Install Docker if not installed
+# ----------------------------
+if ! command -v docker &>/dev/null; then
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+        | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt-get update -y
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    usermod -aG docker ubuntu
+fi
 
-# Install Docker (optional, in case the app needs it)
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt-get update -y
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-# Add ubuntu user to docker group
-usermod -aG docker ubuntu
-
-# Install nginx for reverse proxy (optional)
+# ----------------------------
+# 7. Install Nginx
+# ----------------------------
 apt-get install -y nginx
 
-# Create application directory
-mkdir -p /opt/app
-cd /opt/app
+# ----------------------------
+# 8. Prepare application directory
+# ----------------------------
+APP_DIR="/opt/app"
+mkdir -p "$APP_DIR"
+cd "$APP_DIR"
 
-# Clone the repository
-git clone ${github_repo_url} .
-
-# Set ownership to ubuntu user
-chown -R ubuntu:ubuntu /opt/app
-
-# Create log directory
+# Clone repo if empty
+if [ -z "$(ls -A "$APP_DIR")" ]; then
+    git clone "${github_repo_url}" .
+fi
+chown -R ubuntu:ubuntu "$APP_DIR"
 mkdir -p /var/log/app
 chown ubuntu:ubuntu /var/log/app
 
-# Function to detect and setup the application
+# ----------------------------
+# 9. Application Setup Function
+# ----------------------------
 setup_application() {
-    cd /opt/app
-    
-    # Check for different types of applications and set them up accordingly
-    
+    cd "$APP_DIR"
+
+    # ------------------------
+    # Node.js
+    # ------------------------
     if [ -f "package.json" ]; then
         echo "Node.js application detected"
-        # Install npm dependencies
         sudo -u ubuntu npm install
-        
-        # Check if there's a build script
         if npm run --silent | grep -q "build"; then
             sudo -u ubuntu npm run build
         fi
-        
-        # Create systemd service for Node.js app
-        cat > /etc/systemd/system/app.service << EOF
+        ENTRY_FILE=$(find . -maxdepth 2 -type f \( -name "dist/index.js" -o -name "build/index.js" -o -name "server.js" -o -name "app.js" -o -name "index.js" \) | head -1)
+        [ -z "$ENTRY_FILE" ] && ENTRY_FILE="index.js"
+        cat > /etc/systemd/system/app.service <<EOF
 [Unit]
-Description=Node.js Application
+Description=Node.js App
 After=network.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/app
+WorkingDirectory=$APP_DIR
 Environment=NODE_ENV=production
 Environment=PORT=${app_port}
-ExecStart=/usr/bin/node \$(if [ -f "dist/index.js" ]; then echo "dist/index.js"; elif [ -f "build/index.js" ]; then echo "build/index.js"; elif [ -f "server.js" ]; then echo "server.js"; elif [ -f "app.js" ]; then echo "app.js"; else echo "index.js"; fi)
+ExecStart=/usr/bin/node $ENTRY_FILE
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -99,41 +117,69 @@ SyslogIdentifier=app
 [Install]
 WantedBy=multi-user.target
 EOF
-        
+
+    # ------------------------
+    # Python
+    # ------------------------
     elif [ -f "requirements.txt" ]; then
         echo "Python application detected"
-        # Create virtual environment
         sudo -u ubuntu python3 -m venv venv
-        # Install dependencies
         sudo -u ubuntu ./venv/bin/pip install -r requirements.txt
-        
-        # Try to detect the main Python file
-        MAIN_FILE=""
-        if [ -f "app.py" ]; then
-            MAIN_FILE="app.py"
-        elif [ -f "main.py" ]; then
-            MAIN_FILE="main.py"
-        elif [ -f "server.py" ]; then
-            MAIN_FILE="server.py"
-        elif [ -f "run.py" ]; then
-            MAIN_FILE="run.py"
+        MAIN_FILE=$(ls | grep -E "app.py|main.py|server.py|run.py" | head -1)
+        [ -z "$MAIN_FILE" ] && MAIN_FILE="app.py"
+        cat > /etc/systemd/system/app.service <<EOF
+[Unit]
+Description=Python App
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=$APP_DIR
+Environment=PYTHONPATH=$APP_DIR
+Environment=PORT=${app_port}
+ExecStart=$APP_DIR/venv/bin/python $MAIN_FILE
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=app
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # ------------------------
+    # Java Maven/Gradle
+    # ------------------------
+    elif [ -f "pom.xml" ] || [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+        echo "Java application detected"
+        apt-get install -y maven unzip
+        if [ -f "pom.xml" ]; then
+            sudo -u ubuntu -E JAVA_HOME=$JAVA_HOME mvn clean package -DskipTests
+            JAR_FILE=$(find target -name "*.jar" | grep -vE "sources|original" | head -1)
         else
-            MAIN_FILE="app.py"  # Default
+            # Gradle
+            wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip
+            unzip -o gradle-8.4-bin.zip -d /opt/
+            ln -sf /opt/gradle-8.4/bin/gradle /usr/local/bin/gradle
+            sudo -u ubuntu gradle build -x test
+            JAR_FILE=$(find build/libs -name "*.jar" | head -1)
         fi
-        
-        # Create systemd service for Python app
-        cat > /etc/systemd/system/app.service << EOF
+        [ -z "$JAR_FILE" ] && echo "No JAR found" && exit 1
+        cat > /etc/systemd/system/app.service <<EOF
 [Unit]
-Description=Python Application
+Description=Java App
 After=network.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/app
-Environment=PYTHONPATH=/opt/app
+WorkingDirectory=$APP_DIR
+Environment=JAVA_HOME=$JAVA_HOME
+Environment=PATH=$JAVA_HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PORT=${app_port}
-ExecStart=/opt/app/venv/bin/python $MAIN_FILE
+ExecStart=$JAVA_HOME/bin/java -jar $JAR_FILE --server.port=${app_port}
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -143,112 +189,25 @@ SyslogIdentifier=app
 [Install]
 WantedBy=multi-user.target
 EOF
-        
-    elif [ -f "pom.xml" ]; then
-        echo "Maven Java application detected"
-        # Install Maven
-        apt-get install -y maven
-        
-        # Set JAVA_HOME for this session
-        export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-        export PATH=$PATH:$JAVA_HOME/bin
-        
-        # Build the application
-        sudo -u ubuntu -E JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 mvn clean package -DskipTests
-        
-        # Find the specific JAR file
-        JAR_FILE="techeazy-devops-0.0.1-SNAPSHOT.jar"
-        if [ ! -f "target/$JAR_FILE" ]; then
-            # Fallback to any JAR file if the specific one doesn't exist
-            JAR_FILE=$(find target -name "*.jar" -not -name "*-sources.jar" -not -name "*-original.jar" | head -1)
-            if [ -n "$JAR_FILE" ]; then
-                JAR_FILE=$(basename "$JAR_FILE")
-            else
-                echo "No JAR file found after build"
-                exit 1
-            fi
-        fi
-        
-        echo "Using JAR file: $JAR_FILE"
-        
-        # Create systemd service for Java app
-        cat > /etc/systemd/system/app.service << EOF
-[Unit]
-Description=TechEazy DevOps Spring Boot Application
-After=network.target
 
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/opt/app
-Environment=JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-Environment=PATH=/usr/lib/jvm/java-21-openjdk-amd64/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PORT=${app_port}
-ExecStart=/usr/lib/jvm/java-21-openjdk-amd64/bin/java -jar target/$JAR_FILE --server.port=${app_port}
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=techeazy-app
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        
-    elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-        echo "Gradle Java application detected"
-        # Install Gradle
-        wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
-        unzip gradle-8.4-bin.zip -d /opt/
-        ln -s /opt/gradle-8.4/bin/gradle /usr/local/bin/gradle
-        
-        # Build the application
-        sudo -u ubuntu gradle build -x test
-        
-        # Find the JAR file
-        JAR_FILE=$(find build/libs -name "*.jar" | head -1)
-        
-        # Create systemd service for Java app
-        cat > /etc/systemd/system/app.service << EOF
-[Unit]
-Description=Java Application
-After=network.target
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/opt/app
-Environment=JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-Environment=PORT=${app_port}
-ExecStart=/usr/lib/jvm/java-21-openjdk-amd64/bin/java -jar $JAR_FILE
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=app
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        
+    # ------------------------
+    # Docker
+    # ------------------------
     elif [ -f "Dockerfile" ]; then
         echo "Docker application detected"
-        # Build and run with Docker
         sudo -u ubuntu docker build -t myapp .
-        
-        # Create systemd service for Docker app
-        cat > /etc/systemd/system/app.service << EOF
+        cat > /etc/systemd/system/app.service <<EOF
 [Unit]
-Description=Docker Application
+Description=Docker App
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/app
-ExecStart=/usr/bin/docker run --rm -p ${app_port}:${app_port} myapp
-ExecStop=/usr/bin/docker stop myapp
+WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/docker run --rm -p ${app_port}:${app_port} --name myapp myapp
+ExecStop=/usr/bin/docker stop myapp || true
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -258,49 +217,31 @@ SyslogIdentifier=app
 [Install]
 WantedBy=multi-user.target
 EOF
-        
+
+    # ------------------------
+    # Fallback: Simple Python HTTP server
+    # ------------------------
     else
-        echo "Unknown application type. Creating a simple HTTP server"
-        # Create a simple Python HTTP server as fallback
-        cat > /opt/app/simple_server.py << EOF
+        echo "Unknown app type: using fallback HTTP server"
+        cat > $APP_DIR/simple_server.py <<EOF
 #!/usr/bin/env python3
-import http.server
-import socketserver
-import os
-
-PORT = int(os.environ.get('PORT', ${app_port}))
-
-class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+import http.server, socketserver, os
+PORT=int(os.environ.get('PORT', ${app_port}))
+class MyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/':
+        if self.path=='/':
             self.send_response(200)
-            self.send_header('Content-type', 'text/html')
+            self.send_header('Content-type','text/html')
             self.end_headers()
-            self.wfile.write(b'''
-            <!DOCTYPE html>
-            <html>
-            <head><title>Application Deployed Successfully</title></head>
-            <body>
-                <h1>🎉 Application Deployed Successfully!</h1>
-                <p>Your lift and shift deployment is working.</p>
-                <p>Repository contents are available in /opt/app</p>
-                <p>Server running on port ${app_port}</p>
-            </body>
-            </html>
-            ''')
+            self.wfile.write(b"<h1>App Deployed Successfully</h1>")
         else:
             super().do_GET()
-
-with socketserver.TCPServer(("", PORT), MyHTTPRequestHandler) as httpd:
+with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
     print(f"Server running on port {PORT}")
     httpd.serve_forever()
 EOF
-        
-        chown ubuntu:ubuntu /opt/app/simple_server.py
-        chmod +x /opt/app/simple_server.py
-        
-        # Create systemd service for simple server
-        cat > /etc/systemd/system/app.service << EOF
+        chmod +x $APP_DIR/simple_server.py
+        cat > /etc/systemd/system/app.service <<EOF
 [Unit]
 Description=Simple HTTP Server
 After=network.target
@@ -308,9 +249,9 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/app
+WorkingDirectory=$APP_DIR
 Environment=PORT=${app_port}
-ExecStart=/usr/bin/python3 /opt/app/simple_server.py
+ExecStart=/usr/bin/python3 $APP_DIR/simple_server.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -321,26 +262,28 @@ SyslogIdentifier=app
 WantedBy=multi-user.target
 EOF
     fi
-    
-    # Enable and start the application service
+
+    # ------------------------
+    # Enable and start app
+    # ------------------------
     systemctl daemon-reload
     systemctl enable app
-    systemctl start app
-    
-    # Wait a moment and check if service is running
-    sleep 5
-    systemctl status app || true
+    systemctl restart app
+    echo "Application service setup complete."
 }
 
-# Setup the application
+# Run setup
 setup_application
 
-# Configure nginx as reverse proxy (optional)
-cat > /etc/nginx/sites-available/app << EOF
+# ----------------------------
+# 10. Configure Nginx
+# ----------------------------
+NGINX_SITE="/etc/nginx/sites-available/app"
+cat > "$NGINX_SITE" <<EOF
 server {
     listen 80;
     server_name _;
-    
+
     location / {
         proxy_pass http://localhost:${app_port};
         proxy_set_header Host \$host;
@@ -350,94 +293,9 @@ server {
     }
 }
 EOF
-
-# Enable the nginx site
-ln -sf /etc/nginx/sites-available/app /etc/nginx/sites-enabled/
+ln -sf "$NGINX_SITE" /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
-
-# Test nginx configuration and restart
 nginx -t && systemctl restart nginx
-
-# Enable nginx to start on boot
 systemctl enable nginx
 
-# Create a health check script
-cat > /opt/app/health_check.sh << 'EOF'
-#!/bin/bash
-echo "=== Application Health Check ==="
-echo "Date: $(date)"
-echo "System Uptime: $(uptime)"
-echo ""
-
-echo "=== Service Status ==="
-systemctl is-active app || echo "App service not running"
-systemctl is-active nginx || echo "Nginx service not running"
-echo ""
-
-echo "=== Port Status ==="
-netstat -tlnp | grep :80 || echo "Port 80 not listening"
-netstat -tlnp | grep :${app_port} || echo "Port ${app_port} not listening"
-echo ""
-
-echo "=== Application Logs (last 10 lines) ==="
-journalctl -u app -n 10 --no-pager
-EOF
-
-chmod +x /opt/app/health_check.sh
-chown ubuntu:ubuntu /opt/app/health_check.sh
-
-# Log completion
-echo "$(date): Application setup completed" >> /var/log/cloud-init.log
-
-# Final health check
-/opt/app/health_check.sh >> /var/log/cloud-init.log
-# -----------------------------
-# Setup shutdown hook to upload logs to S3
-# -----------------------------
-
-# Install AWS CLI (if not already installed)
-apt-get install -y awscli
-
-# Create the log upload script
-cat > /opt/app/upload_logs.sh << 'EOF'
-#!/bin/bash
-set -e
-
-LOG_BUCKET="${s3_bucket_name}"
-APP_LOG_DIR="/var/log/app"
-CLOUD_INIT_LOG="/var/log/cloud-init.log"
-AWS_REGION="${aws_region}"
-
-# Upload application logs
-if [ -d "$APP_LOG_DIR" ]; then
-  aws s3 cp "$APP_LOG_DIR/" "s3://$LOG_BUCKET/app/logs/" --recursive --region $AWS_REGION
-fi
-
-# Upload cloud-init log
-if [ -f "$CLOUD_INIT_LOG" ]; then
-  aws s3 cp "$CLOUD_INIT_LOG" "s3://$LOG_BUCKET/cloud-init.log" --region $AWS_REGION
-fi
-EOF
-
-chmod +x /opt/app/upload_logs.sh
-
-# Create systemd service for shutdown hook
-cat > /etc/systemd/system/upload_logs.service << 'EOF'
-[Unit]
-Description=Upload application logs to S3 on shutdown
-DefaultDependencies=no
-Before=shutdown.target reboot.target halt.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/true
-ExecStop=/opt/app/upload_logs.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Reload systemd and enable service
-systemctl daemon-reload
-systemctl enable upload_logs.service
+echo "=== Deployment completed successfully: $(date) ==="
