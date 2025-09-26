@@ -101,8 +101,3 @@ variable "allowed_http_cidr" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
 }
-variable "s3_bucket_name" {
-  description = "Name of the S3 bucket for logs"
-  type        = string
-  default     = "my-app-logs-bucket-142825327"
-}
