@@ -391,34 +391,53 @@ echo "$(date): Application setup completed" >> /var/log/cloud-init.log
 
 # Final health check
 /opt/app/health_check.sh >> /var/log/cloud-init.log
-# Install awscli
+# -----------------------------
+# Setup shutdown hook to upload logs to S3
+# -----------------------------
+
+# Install AWS CLI (if not already installed)
 apt-get install -y awscli
 
+# Create the log upload script
 cat > /opt/app/upload_logs.sh << 'EOF'
 #!/bin/bash
-BUCKET_NAME="${s3_bucket_name}"
-aws s3 cp /var/log/cloud-init.log s3://$BUCKET_NAME/cloud-init.log --region ${aws_region}
-aws s3 cp /var/log/app/ s3://$BUCKET_NAME/app/logs/ --recursive --region ${aws_region}
+set -e
+
+LOG_BUCKET="${s3_bucket_name}"
+APP_LOG_DIR="/var/log/app"
+CLOUD_INIT_LOG="/var/log/cloud-init.log"
+AWS_REGION="${aws_region}"
+
+# Upload application logs
+if [ -d "$APP_LOG_DIR" ]; then
+  aws s3 cp "$APP_LOG_DIR/" "s3://$LOG_BUCKET/app/logs/" --recursive --region $AWS_REGION
+fi
+
+# Upload cloud-init log
+if [ -f "$CLOUD_INIT_LOG" ]; then
+  aws s3 cp "$CLOUD_INIT_LOG" "s3://$LOG_BUCKET/cloud-init.log" --region $AWS_REGION
+fi
 EOF
 
 chmod +x /opt/app/upload_logs.sh
-chown ubuntu:ubuntu /opt/app/upload_logs.sh
 
-# Create systemd service to run on shutdown
-cat > /etc/systemd/system/upload-logs.service << EOF
+# Create systemd service for shutdown hook
+cat > /etc/systemd/system/upload_logs.service << 'EOF'
 [Unit]
-Description=Upload logs to S3 on shutdown
+Description=Upload application logs to S3 on shutdown
 DefaultDependencies=no
-Before=shutdown.target
+Before=shutdown.target reboot.target halt.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/app/upload_logs.sh
+ExecStart=/bin/true
+ExecStop=/opt/app/upload_logs.sh
+RemainAfterExit=yes
 
 [Install]
-WantedBy=halt.target reboot.target
+WantedBy=multi-user.target
 EOF
 
-# Enable the service
+# Reload systemd and enable service
 systemctl daemon-reload
-systemctl enable upload-logs.service
+systemctl enable upload_logs.service
