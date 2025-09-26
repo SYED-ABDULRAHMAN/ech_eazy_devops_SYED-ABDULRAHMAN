@@ -391,3 +391,13 @@ echo "$(date): Application setup completed" >> /var/log/cloud-init.log
 
 # Final health check
 /opt/app/health_check.sh >> /var/log/cloud-init.log
+# Install awscli
+apt-get install -y awscli
+
+# Configure shutdown log upload
+cat <<'EOF' > /var/lib/cloud/scripts/per-instance/shutdown-logs.sh
+#!/bin/bash
+aws s3 cp /var/log/cloud-init.log s3://${s3_bucket_name}/ec2/logs/
+aws s3 cp /var/log/app/ s3://${s3_bucket_name}/app/logs/ --recursive
+EOF
+chmod +x /var/lib/cloud/scripts/per-instance/shutdown-logs.sh
