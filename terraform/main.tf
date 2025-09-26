@@ -179,6 +179,7 @@ locals {
     github_repo_url = var.github_repo_url
     app_port        = var.app_port
     s3_bucket_name  = var.s3_bucket_name
+    aws_region      = var.aws_region
   }))
 }
 
