@@ -69,3 +69,5 @@ output "private_key_file" {
   description = "Path to the private key file (if created)"
   value       = var.create_key_pair ? "${var.project_name}-key.pem" : "Using existing key pair"
 }
+
+
