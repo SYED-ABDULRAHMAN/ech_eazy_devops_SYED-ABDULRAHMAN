@@ -10,6 +10,8 @@ resource "aws_autoscaling_group" "app_asg" {
   }
 
   target_group_arns = [aws_lb_target_group.app_tg.arn]
+force_delete = true
+
 }
 
 
