@@ -3,8 +3,8 @@ name: 'Terraform AWS EC2 Deployment'
 on:
   push:
     branches:
-      - main
-      - develop
+      - feature/autoscaling
+
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-deploy.yml'
