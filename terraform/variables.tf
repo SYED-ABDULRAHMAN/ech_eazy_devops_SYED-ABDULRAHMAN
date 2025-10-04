@@ -106,20 +106,18 @@ variable "s3_bucket_name" {
   type        = string
   default     = "my-app-logs-bucket-142825327"
 }
-variable "app_port" {
-  description = "Application port"
-  type        = number
-  default     = 8080
-}
+
 
 variable "app_jar_bucket_name" {
   description = "S3 bucket name to store the JAR"
   type        = string
+  default     = "app_jar_bucket-13131435"
 }
 
 variable "elb_logs_bucket_name" {
   description = "S3 bucket for storing ALB logs"
   type        = string
+  default     = "elb_logs_bucket-3513564634"
 }
 
 variable "instance_count" {
