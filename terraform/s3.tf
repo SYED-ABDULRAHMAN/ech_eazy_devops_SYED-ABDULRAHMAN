@@ -23,13 +23,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs_lifecycle" {
     }
   }
 }
-# -----------------------------
-# Existing bucket (for logs) - already present
-# -----------------------------
-resource "aws_s3_bucket" "logs" {
-  bucket        = var.s3_bucket_name
-  force_destroy = true
-}
 
 # -----------------------------
 # New bucket for storing JAR file
