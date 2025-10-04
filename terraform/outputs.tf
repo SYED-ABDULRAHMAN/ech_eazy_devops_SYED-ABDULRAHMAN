@@ -24,6 +24,9 @@ output "elastic_ip" {
   description = "Elastic IP address (if created)"
   value       = var.create_elastic_ip ? aws_eip.app_eip[0].public_ip : null
 }
+output "lb_dns_name" {
+  value = aws_lb.app_lb.dns_name
+}
 
 # Application URLs
 output "application_url_http" {
