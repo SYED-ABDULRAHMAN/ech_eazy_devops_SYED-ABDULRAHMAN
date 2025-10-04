@@ -3,7 +3,7 @@ name: 'Terraform AWS EC2 Deployment'
 on:
   push:
     branches:
-      - feature/autoscaling
+      - feature/add-scaling
 
     paths:
       - 'terraform/**'
