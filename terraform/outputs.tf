@@ -1,23 +1,3 @@
-# Instance Information
-output "instance_id" {
-  description = "ID of the EC2 instance"
-  value       = aws_instance.app_server.id
-}
-
-output "instance_public_ip" {
-  description = "Public IP address of the EC2 instance"
-  value       = aws_instance.app_server.public_ip
-}
-
-output "instance_public_dns" {
-  description = "Public DNS name of the EC2 instance"
-  value       = aws_instance.app_server.public_dns
-}
-
-output "instance_private_ip" {
-  description = "Private IP address of the EC2 instance"
-  value       = aws_instance.app_server.private_ip
-}
 
 # Elastic IP (if created)
 output "elastic_ip" {
@@ -28,16 +8,6 @@ output "lb_dns_name" {
   value = aws_lb.app_lb.dns_name
 }
 
-# Application URLs
-output "application_url_http" {
-  description = "HTTP URL to access the application"
-  value       = "http://${aws_instance.app_server.public_ip}:${var.app_port}"
-}
-
-output "application_url_http_port_80" {
-  description = "HTTP URL to access the application on port 80"
-  value       = "http://${aws_instance.app_server.public_ip}"
-}
 
 # SSH Connection
 output "ssh_connection_command" {
